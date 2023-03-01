@@ -51,7 +51,7 @@ def create_deployment_object(container: Container, label: str):
     deployment = client.V1Deployment(
         api_version="apps/v1",
         kind="Deployment",
-        metadata=client.V1ObjectMeta(name=label+"-deployment"),
+        metadata=client.V1ObjectMeta(name=label + "-deployment"),
         spec=spec,
     )
 
@@ -104,6 +104,65 @@ def restart_deployment(api, deployment, name: str):
             resp.spec.template.metadata.annotations,
         )
     )
+
+
+def create_service(api, port, label: str):
+    body = client.V1Service(
+        api_version="v1",
+        kind="Service",
+        metadata=client.V1ObjectMeta(
+            name=label
+        ),
+        spec=client.V1ServiceSpec(
+            selector={"app": label},
+            ports=[client.V1ServicePort(
+                port=port
+            )]
+        )
+    )
+    # Creation of the Deployment in specified namespace
+    # (Can replace "default" with a namespace you may have created)
+    resp = api.create_namespaced_service(namespace="default", body=body)
+    print("\n[INFO] service created.")
+
+
+def create_ingress(api, port, label: str, host_name: str):
+    body = client.V1Ingress(
+        api_version="networking.k8s.io/v1",
+        kind="Ingress",
+        metadata=client.V1ObjectMeta(name=label, annotations={
+            "kubernetes.io/ingress.class": "traefik"
+        }),
+        spec=client.V1IngressSpec(
+            rules=[client.V1IngressRule(
+                host=host_name,
+                http=client.V1HTTPIngressRuleValue(
+                    paths=[client.V1HTTPIngressPath(
+                        path="/",
+                        path_type="Exact",
+                        backend=client.V1IngressBackend(
+                            service=client.V1IngressServiceBackend(
+                                port=client.V1ServiceBackendPort(
+                                    number=port,
+                                ),
+                                name=label)
+                        )
+                    )]
+                )
+            )
+            ]
+        )
+    )
+    # Creation of the Deployment in specified namespace
+    # (Can replace "default" with a namespace you may have created)
+    resp = api.create_namespaced_ingress(
+        namespace="default",
+        body=body
+    )
+
+    print("\n[INFO] ingress created.")
+
+
 
 
 def create_deployment(api, deployment):
